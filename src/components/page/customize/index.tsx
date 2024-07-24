@@ -1,20 +1,28 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { NextPage } from 'next';
 import Head from 'next/head';
 import MainLayout from '../mainlayout';
-
 import { useAuthState } from 'react-firebase-hooks/auth';
-import { auth } from '@/app/firebase/config';
+import { auth, db } from '@/app/firebase/config';
+import {
+  collection,
+  addDoc,
+  deleteDoc,
+  query,
+  getDocs,
+  where,
+  updateDoc,
+  doc,
+} from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
-import { signOut } from 'firebase/auth';
-
 import Image from 'next/image';
 import github from '../../../../public/assets/github.svg';
 import youtube from '../../../../public/assets/youtube.svg';
 import linkedin from '../../../../public/assets/linkedin.svg';
 import fingerImage from '../../../../public/assets/fingerImage.svg';
+import { toast, Toaster } from 'react-hot-toast';
 
 const platforms = ['GitHub', 'LinkedIn', 'Twitter', 'YouTube'];
 
@@ -34,67 +42,95 @@ const platformImages: Record<string, string> = {
 
 interface Link {
   platform: string;
+  url: string;
+  id?: string;
+  createdAt?: Date;
 }
 
 const CustomizeLinks: NextPage = () => {
-  // authenticate user
   const [user, loading, error] = useAuthState(auth);
-  const [links, setLinks] = useState<Link[]>([{ platform: 'GitHub' }]);
+  const [links, setLinks] = useState<Link[]>([]);
   const [urls, setUrls] = useState<{ [key: number]: string }>({});
   const [dropdownOpen, setDropdownOpen] = useState<{ [key: number]: boolean }>(
     {}
   );
-  const [savedLinks, setSavedLinks] = useState<
-    { platform: string; url: string }[]
-  >([]);
+  const [showPlaceholder, setShowPlaceholder] = useState<boolean>(true);
   const router = useRouter();
 
+  const fetchLinks = useCallback(async () => {
+    if (!user) return;
+    try {
+      const q = query(collection(db, 'links'), where('userId', '==', user.uid));
+      const querySnapshot = await getDocs(q);
+      const linksList = querySnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as Link[];
+
+      console.log('Fetched links:', linksList);
+
+      // Update both links and urls state
+      setLinks(linksList);
+      const urlMap = linksList.reduce(
+        (acc, link, index) => {
+          acc[index] = link.url;
+          return acc;
+        },
+        {} as { [key: number]: string }
+      );
+
+      setUrls(urlMap);
+      setShowPlaceholder(linksList.length === 0);
+    } catch (error) {
+      console.error('Error fetching links:', error);
+    }
+  }, [user]);
+
   useEffect(() => {
-    // Redirect to sign-up if no user and not loading
+    fetchLinks();
+  }, [fetchLinks]);
+
+  useEffect(() => {
     if (!loading && !user) {
       router.push('/login');
     }
   }, [user, loading, router]);
 
-  const handleSignOut = () => {
-    signOut(auth)
-      .then(() => {
-        sessionStorage.removeItem('user');
-        router.push('/login');
-      })
-      .catch((error) => {
-        console.error('Sign Out Error', error);
-      });
+  const isValidUrl = (platform: string, url: string) => {
+    const regexes: Record<string, RegExp> = {
+      GitHub: /^https:\/\/github\.com\/.+/,
+      LinkedIn: /^https:\/\/(www\.)?linkedin\.com\/in\/.+/,
+      Twitter: /^https:\/\/twitter\.com\/.+/,
+      YouTube: /^https:\/\/(www\.)?youtube\.com\/(channel|user)\/.+/,
+    };
+    return regexes[platform]?.test(url) ?? false;
   };
-
-  if (loading) {
-    // Optionally add a loading spinner or message here
-    return (
-      <div className="flex justify-center items-center min-h-screen">
-        Loading...
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex justify-center items-center min-h-screen">
-        Error: {error.message}
-      </div>
-    );
-  }
 
   const addLink = () => {
-    setLinks([...links, { platform: '' }]);
+    setLinks([...links, { platform: '', url: '', createdAt: new Date() }]);
+    setShowPlaceholder(false);
   };
 
-  const removeLink = (index: number) => {
-    setLinks(links.filter((_, i) => i !== index));
-    setUrls((prevUrls) => {
-      const newUrls = { ...prevUrls };
-      delete newUrls[index];
-      return newUrls;
-    });
+  const removeLink = async (index: number) => {
+    if (!user) return;
+
+    const linkToDelete = links[index];
+    if (!linkToDelete.id) return;
+
+    try {
+      await deleteDoc(doc(db, 'links', linkToDelete.id));
+      toast.success('Link deleted successfully!');
+      setLinks(links.filter((_, i) => i !== index));
+      setUrls((prevUrls) => {
+        const newUrls = { ...prevUrls };
+        delete newUrls[index];
+        return newUrls;
+      });
+      if (links.length === 1) setShowPlaceholder(true);
+    } catch (error) {
+      toast.error('Error deleting link.');
+      console.error('Error deleting link:', error);
+    }
   };
 
   const handlePlatformChange = (index: number, platform: string) => {
@@ -103,12 +139,13 @@ const CustomizeLinks: NextPage = () => {
     setLinks(newLinks);
     setUrls((prevUrls) => {
       const newUrls = { ...prevUrls };
-      delete newUrls[index]; // Reset URL when platform changes
+      delete newUrls[index];
       return newUrls;
     });
   };
 
   const handleUrlChange = (index: number, value: string) => {
+    console.log(`Updating URL at index ${index} with value: ${value}`);
     setUrls((prevUrls) => ({ ...prevUrls, [index]: value }));
   };
 
@@ -118,27 +155,55 @@ const CustomizeLinks: NextPage = () => {
 
   const selectPlatform = (index: number, platform: string) => {
     handlePlatformChange(index, platform);
+    console.log(`Selected platform at index ${index}: ${platform}`);
     setDropdownOpen((prev) => ({ ...prev, [index]: false }));
   };
 
-  const saveLinks = () => {
-    const finalLinks = links.map((link, index) => ({
-      platform: link.platform,
-      url: urls[index] || platformDefaultUrls[link.platform] || '',
-    }));
-    setSavedLinks(finalLinks);
+  const allUrlsValid = links.every((link, index) =>
+    isValidUrl(link.platform, urls[index] || '')
+  );
+
+  const saveLinks = async () => {
+    if (links.some((link, index) => !urls[index])) {
+      toast.error("Links can't be empty");
+      return;
+    }
+
+    if (allUrlsValid && user) {
+      try {
+        const promises = links.map((link, index) => {
+          const linkData = { ...link, url: urls[index] }; // Ensure URL is passed correctly
+          console.log('Saving link:', linkData);
+          if (link.id) {
+            // Update existing link
+            return updateDoc(doc(db, 'links', link.id), linkData);
+          } else {
+            // Add new link
+            return addDoc(collection(db, 'links'), {
+              ...linkData,
+              userId: user.uid,
+            });
+          }
+        });
+        await Promise.all(promises);
+        toast.success('Links saved successfully!');
+        fetchLinks(); // Refresh the links
+      } catch (error) {
+        toast.error('Error saving links.');
+        console.error('Error saving links:', error);
+      }
+    }
   };
 
   return (
     <>
-      {user && (
-        <header className="bg-blue-600 text-white p-4">
-          <h1 className="text-2xl">Welcome, {user.email}</h1>
-        </header>
-      )}
-      <button onClick={handleSignOut}>Log out</button>
       <div className="flex bg-primary">
-        <MainLayout links={savedLinks} />
+        <MainLayout
+          links={links.map((link, index) => ({
+            platform: link.platform,
+            url: urls[index] || platformDefaultUrls[link.platform] || '',
+          }))}
+        />
 
         <div className="bg-gray-100 p-5 w-full h-full">
           <Head>
@@ -149,8 +214,8 @@ const CustomizeLinks: NextPage = () => {
               Customize your links
             </h1>
             <p className="text-[#737373] mb-6">
-              Add/edit/remove links below and then share all your profiles with
-              the world!
+              Add/remove links below and then share all your profiles with the
+              world!
             </p>
             <button
               onClick={addLink}
@@ -159,9 +224,8 @@ const CustomizeLinks: NextPage = () => {
               + Add new link
             </button>
 
-            {/* Start of Scrollable Section */}
             <div className="h-[27rem] overflow-y-auto">
-              {links.length === 0 && (
+              {showPlaceholder && links.length === 0 && (
                 <section className="self-stretch rounded-xl bg-[#fafafa] overflow-hidden flex flex-col items-center justify-center py-[62.5px] px-5 box-border max-w-full">
                   <div className="self-stretch flex flex-col items-center justify-center gap-[40px] max-w-full">
                     <Image
@@ -263,7 +327,6 @@ const CustomizeLinks: NextPage = () => {
                 </div>
               ))}
             </div>
-            {/* End of Scrollable Section */}
 
             <hr className="mt-5" />
 
@@ -276,6 +339,7 @@ const CustomizeLinks: NextPage = () => {
               </button>
             </div>
           </div>
+          <Toaster position="top-right" reverseOrder={false} />
         </div>
       </div>
     </>
