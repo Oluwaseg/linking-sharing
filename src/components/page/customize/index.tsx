@@ -229,18 +229,16 @@ const CustomizeLinks: NextPage = () => {
 
   if (error || !user) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-20 w-20 border-t-4 border-b-2 border-[#b32828]"></div>
-          <p className="text-red-500 font-bold">Error: {error?.message}</p>
-          <p className="text-gray-700 mt-4">Please log in to continue.</p>
+      <div className="text-center flex flex-col items-center justify-center min-h-screen">
+        <div className="animate-spin flex justify-center items-center rounded-full h-20 w-20 border-t-4 border-b-2 border-[#b32828]"></div>
 
-          <Link href="/login">
-            <a className="text-[#b32828] underline mt-2 font-medium">
-              Go to Login Page
-            </a>
-          </Link>
-        </div>
+        <p className="text-gray-700 mt-4">Please log in to continue.</p>
+
+        <Link href="/login" legacyBehavior>
+          <a className="text-[#b32828] underline mt-2 font-medium">
+            Go to Login Page
+          </a>
+        </Link>
       </div>
     );
   }
