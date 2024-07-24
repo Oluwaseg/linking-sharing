@@ -1,0 +1,114 @@
+import { FC } from 'react';
+import Link from 'next/link';
+import Image from 'next/image';
+
+import github from '../../../public/assets/github2.svg';
+import youtube from '../../../public/assets/youtube2.svg';
+import linkedin from '../../../public/assets/linkedin2.svg';
+import ArrowRight from '../../public/assets/arrow-right.svg';
+
+interface Link {
+  platform: string;
+  url: string;
+}
+
+interface PreviewProps {
+  links: Link[];
+  profilePicture?: string;
+  email?: string;
+}
+
+const platformImages: Record<string, string> = {
+  GitHub: github,
+  LinkedIn: linkedin,
+  YouTube: youtube,
+};
+
+const platformColors: Record<string, string> = {
+  GitHub: '#1A1A1A',
+  LinkedIn: '#2D68FF',
+  YouTube: '#EE3939',
+};
+
+const Preview: FC<PreviewProps> = ({ links, profilePicture, email }) => {
+  return (
+    <div className="relative bg-white sm:bg-primary h-screen w-full">
+      <div className="relative flex flex-col lg:gap-[106px] sm:gap-[126px] z-10">
+        <div className="w-full relative sm:px-6 sm:py-4">
+          <nav className="px-6 py-4 rounded-xl bg-white w-full flex justify-center gap-4 sm:gap-0 sm:justify-between items-center">
+            <Link href="/" legacyBehavior>
+              <a className="rounded-lg text-secondary sm:w-fit w-full border border-secondary bg-white px-[27px] py-[11px]">
+                Back to Editor
+              </a>
+            </Link>
+            <button className="rounded-lg text-white border sm:w-fit w-full border-secondary bg-secondary px-[40.5px] sm:px-[27px] py-[11px]">
+              Share Link
+            </button>
+          </nav>
+        </div>
+        <div className="w-full flex justify-center items-center">
+          <div className="h-[631px] w-[307px] rounded-3xl bg-white flex flex-col py-12 gap-14 items-center">
+            <div className="flex flex-col gap-[25px] items-center">
+              {profilePicture ? (
+                <div className="relative">
+                  <Image
+                    src={profilePicture}
+                    alt="Profile Picture"
+                    className="w-[7rem] h-[7rem] rounded-full object-cover"
+                    width={100}
+                    height={100}
+                  />
+                </div>
+              ) : (
+                <div className="rounded-full w-[7rem] h-[7rem] content-none bg-dark mx-[5rem] top-[4rem] left-0" />
+              )}
+              <div className="flex flex-col gap-[13px] items-center">
+                <div className="w-[10rem] top-[12rem] mx-[3.6rem] h-5 rounded-full bg-dark"></div>
+                <div className="w-[5rem] top-[14rem] mx-[6.4rem] h-2 rounded-full bg-dark"></div>
+                {email && (
+                  <div className="text-dark-gray text-sm mt-2">{email}</div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex gap-[20px] w-full sm:px-14 sm:py-12 flex-col top-[16.5rem] left-0 mx-9">
+              {links.map((link, index) => (
+                <div
+                  key={index}
+                  className="rounded-md h-11 w-full flex items-center pl-4 pr-5 py-4 gap-2 justify-between text-white"
+                  style={{
+                    backgroundColor: platformColors[link.platform] || '#000',
+                  }}
+                >
+                  <div className="flex gap-2 items-center">
+                    <Image
+                      src={
+                        platformImages[link.platform] ||
+                        '/path/to/default/image.svg'
+                      }
+                      alt={link.platform}
+                      width={20}
+                      height={20}
+                    />
+                    <a
+                      href={link.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-white"
+                    >
+                      {link.platform}
+                    </a>
+                  </div>
+                  <Image src={ArrowRight} alt="arrow" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+      <div className="sm:flex flex-col gap-[106px] hidden h-[357px] fixed top-0 z-0 p-6 bg-secondary w-full rounded-b-[32px]"></div>
+    </div>
+  );
+};
+
+export default Preview;
