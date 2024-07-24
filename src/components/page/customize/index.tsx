@@ -23,6 +23,8 @@ import youtube from '../../../../public/assets/youtube.svg';
 import linkedin from '../../../../public/assets/linkedin.svg';
 import fingerImage from '../../../../public/assets/fingerImage.svg';
 import { toast, Toaster } from 'react-hot-toast';
+import { signOut } from 'firebase/auth';
+import Link from 'next/link';
 
 const platforms = ['GitHub', 'LinkedIn', 'Twitter', 'YouTube'];
 
@@ -95,6 +97,28 @@ const CustomizeLinks: NextPage = () => {
       router.push('/login');
     }
   }, [user, loading, router]);
+
+  useEffect(() => {
+    if (user) {
+      const timeout = setTimeout(
+        () => {
+          signOut(auth)
+            .then(() => {
+              toast.success('You have been signed out due to inactivity.');
+              router.push('/login');
+            })
+            .catch((error) => {
+              console.error('Sign-out error:', error);
+              toast.error('Error signing out.');
+            });
+        },
+        30 * 60 * 1000
+      ); // 30 minutes
+
+      // Clear timeout if the component unmounts or user changes
+      return () => clearTimeout(timeout);
+    }
+  }, [user]);
 
   const isValidUrl = (platform: string, url: string) => {
     const regexes: Record<string, RegExp> = {
@@ -194,6 +218,32 @@ const CustomizeLinks: NextPage = () => {
       }
     }
   };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="animate-spin rounded-full h-20 w-20 border-t-4 border-b-2 border-[#633CFF]"></div>
+      </div>
+    );
+  }
+
+  if (error || !user) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-20 w-20 border-t-4 border-b-2 border-[#b32828]"></div>
+          <p className="text-red-500 font-bold">Error: {error?.message}</p>
+          <p className="text-gray-700 mt-4">Please log in to continue.</p>
+
+          <Link href="/login">
+            <a className="text-[#b32828] underline mt-2 font-medium">
+              Go to Login Page
+            </a>
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
