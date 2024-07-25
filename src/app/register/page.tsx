@@ -208,6 +208,7 @@ const Signup = () => {
           </h1>
         </div>
       </div>
+      <Toaster position="top-right" reverseOrder={false} />
     </section>
   );
 };

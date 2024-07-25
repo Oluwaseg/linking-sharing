@@ -160,7 +160,8 @@ const Login = () => {
             </Link>
           </h1>
         </div>
-      </div>
+      </div> 
+      <Toaster position="top-right" reverseOrder={false} />
     </section>
   );
 };
