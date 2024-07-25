@@ -21,16 +21,17 @@ import { useAuthState } from 'react-firebase-hooks/auth';
 import { toast, Toaster } from 'react-hot-toast';
 import Link from 'next/link';
 
+// Updated UserLink type to match the expected format
+interface UserLink {
+  id: string;
+  platform: string;
+  url: string;
+}
+
 interface FormData {
   firstName: string;
   lastName: string;
   email: string;
-}
-
-interface UserLink {
-  id: string;
-  url: string;
-  title: string;
 }
 
 const DesktopPage: React.FC = () => {
