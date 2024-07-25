@@ -109,7 +109,7 @@ const CustomizeLinks: NextPage = () => {
               email?: string;
             };
             setProfilePicture(profileData.imageUrl || null);
-            setEmail(profileData.email || undefined);
+            setEmail(profileData.email ?? null);
           }
         } catch (err) {
           console.error('Error fetching profile data:', err);
