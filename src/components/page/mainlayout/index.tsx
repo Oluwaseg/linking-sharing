@@ -3,9 +3,9 @@ import { FC } from 'react';
 import Image from 'next/image';
 import innerShape from '../../../../public/assets/Rectangle 15.svg';
 import outerShape from '../../../../public/assets/Subtract.svg';
-import github from '../../../../public/assets/github2.svg';
-import youtube from '../../../../public/assets/youtube2.svg';
-import linkedin from '../../../../public/assets/linkedin2.svg';
+import github from '../../../../public/assets/github.svg';
+import youtube from '../../../../public/assets/youtube.svg';
+import linkedin from '../../../../public/assets/linkedin.svg';
 import facebook from '../../../../public/assets/facebook.svg';
 import arrow from '../../../../public/assets/arrow.svg';
 

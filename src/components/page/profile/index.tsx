@@ -114,7 +114,8 @@ const DesktopPage: React.FC = () => {
   const onSubmit = async (data: FormData) => {
     if (user) {
       try {
-        let imageUrl: string | undefined;
+        let imageUrl: string | null = profilePicture;
+
         if (selectedFile) {
           const imageRef = ref(storage, `profile_images/${user.uid}`);
           await uploadBytes(imageRef, selectedFile);
@@ -131,7 +132,7 @@ const DesktopPage: React.FC = () => {
         setFirstName(data.firstName);
         setLastName(data.lastName);
         setEmail(data.email);
-        setProfilePicture(imageUrl || profilePicture);
+        setProfilePicture(imageUrl);
 
         toast.success('Profile updated successfully!');
       } catch (error) {
@@ -188,20 +189,25 @@ const DesktopPage: React.FC = () => {
               className="border border-purple bg-purple sm:py-[1rem] py-[3rem] sm:px-[2rem] px-[1.5rem] rounded-md flex flex-col items-center cursor-pointer"
               onClick={handleUploadClick}
               style={{
-                backgroundImage: selectedFile ? `url(${profilePicture})` : '',
+                backgroundImage:
+                  profilePicture || selectedFile
+                    ? `url(${profilePicture || selectedFile})`
+                    : '',
                 backgroundSize: 'cover',
                 backgroundPosition: 'center',
               }}
             >
               <Image
-                src={selectedFile ? change : upload}
-                alt={selectedFile ? 'change' : 'upload'}
+                src={profilePicture || selectedFile ? change : upload}
+                alt={profilePicture || selectedFile ? 'change' : 'upload'}
                 className="mb-2"
               />
               <h4
-                className={`font-semibold ${selectedFile ? 'text-white' : 'text-secondary'}`}
+                className={`font-semibold ${profilePicture || selectedFile ? 'text-white' : 'text-secondary'}`}
               >
-                {selectedFile ? 'Change Image' : '+ Upload Image'}
+                {profilePicture || selectedFile
+                  ? 'Change Image'
+                  : '+ Upload Image'}
               </h4>
               <input
                 type="file"

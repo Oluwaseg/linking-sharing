@@ -19,12 +19,13 @@ import {
 } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import github from '../../../../public/assets/github.svg';
-import youtube from '../../../../public/assets/youtube.svg';
+
+import github from '../../../../public/assets/github2.svg';
+import youtube from '../../../../public/assets/youtube2.svg';
 import chain from '../../../../public/assets/link_2.svg';
-import linkedin from '../../../../public/assets/linkedin.svg';
+import linkedin from '../../../../public/assets/linkedin2.svg';
 import fingerImage from '../../../../public/assets/fingerImage.svg';
-import facebook from '../../../../public/assets/facebook.svg';
+import facebook from '../../../../public/assets/facebook2.svg';
 import { toast, Toaster } from 'react-hot-toast';
 import { signOut } from 'firebase/auth';
 import Link from 'next/link';
@@ -52,6 +53,13 @@ interface Link {
   createdAt?: Date;
 }
 
+interface ProfileData {
+  imageUrl?: string;
+  email?: string;
+  firstName?: string;
+  lastName?: string;
+}
+
 const CustomizeLinks: NextPage = () => {
   const [user, loading, error] = useAuthState(auth);
   const [links, setLinks] = useState<Link[]>([]);
@@ -62,6 +70,8 @@ const CustomizeLinks: NextPage = () => {
   const [showPlaceholder, setShowPlaceholder] = useState<boolean>(true);
   const [profilePicture, setProfilePicture] = useState<string | null>(null);
   const [email, setEmail] = useState<string | null>(null);
+  const [firstName, setFirstName] = useState<string | null>(null);
+  const [lastName, setLastName] = useState<string | null>(null);
   const [validationPerformed, setValidationPerformed] =
     useState<boolean>(false);
   const router = useRouter();
@@ -104,12 +114,11 @@ const CustomizeLinks: NextPage = () => {
           const profileDocSnap = await getDoc(profileDocRef);
 
           if (profileDocSnap.exists()) {
-            const profileData = profileDocSnap.data() as {
-              imageUrl?: string;
-              email?: string;
-            };
+            const profileData = profileDocSnap.data() as ProfileData;
             setProfilePicture(profileData.imageUrl || null);
             setEmail(profileData.email ?? null);
+            setFirstName(profileData.firstName || null);
+            setLastName(profileData.lastName || null);
           }
         } catch (err) {
           console.error('Error fetching profile data:', err);
@@ -216,7 +225,7 @@ const CustomizeLinks: NextPage = () => {
   );
 
   const saveLinks = async () => {
-    setValidationPerformed(true); // Set validationPerformed to true when save is clicked
+    setValidationPerformed(true);
 
     if (links.some((link, index) => !urls[index])) {
       toast.error("Links can't be empty");
@@ -228,7 +237,6 @@ const CustomizeLinks: NextPage = () => {
       return;
     }
 
-    // Check if all URLs are valid
     const invalidLinks = links.filter(
       (link, index) => !isValidUrl(link.platform, urls[index] || '')
     );
@@ -239,13 +247,11 @@ const CustomizeLinks: NextPage = () => {
 
     try {
       const promises = links.map((link, index) => {
-        const linkData = { ...link, url: urls[index] || '' }; // Ensure URL is passed correctly
+        const linkData = { ...link, url: urls[index] || '' };
         console.log('Saving link:', linkData);
         if (link.id) {
-          // Update existing link
           return updateDoc(doc(db, 'links', link.id), linkData);
         } else {
-          // Add new link
           return addDoc(collection(db, 'links'), {
             ...linkData,
             userId: user.uid,
@@ -254,7 +260,7 @@ const CustomizeLinks: NextPage = () => {
       });
       await Promise.all(promises);
       toast.success('Links saved successfully!');
-      fetchLinks(); // Refresh the links
+      fetchLinks();
     } catch (error) {
       toast.error('Error saving links.');
       console.error('Error saving links:', error);
@@ -274,10 +280,12 @@ const CustomizeLinks: NextPage = () => {
       <div className="text-center flex flex-col items-center justify-center min-h-screen">
         <div className="animate-spin flex justify-center items-center rounded-full h-20 w-20 border-t-4 border-b-2 border-[#b32828]"></div>
 
-        <p className="text-gray-700 mt-4">Please log in to continue.</p>
+        <p className="text-[#b32828] text-2xl font-semibold mt-4">
+          Please log in to continue.
+        </p>
 
         <Link href="/login" legacyBehavior>
-          <a className="text-[#b32828] underline mt-2 font-medium">
+          <a className="text-[#b32828] underline mt-2 font-semibold">
             Go to Login Page
           </a>
         </Link>
@@ -291,6 +299,8 @@ const CustomizeLinks: NextPage = () => {
         <MainLayout
           profilePicture={profilePicture || undefined}
           email={email || undefined}
+          firstName={firstName || undefined}
+          lastName={lastName || undefined}
           links={links.map((link, index) => ({
             platform: link.platform,
             url: urls[index] || platformDefaultUrls[link.platform] || '',
