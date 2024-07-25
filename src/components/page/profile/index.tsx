@@ -1,14 +1,25 @@
 'use client';
 import React, { useRef, useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { useForm } from 'react-hook-form';
 import MainLayout from '../mainlayout';
 import upload from '../../../../public/assets/upload.svg';
+import change from '../../../../public/assets/change.svg';
 import { db, auth, storage } from '@/app/firebase/config';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import {
+  doc,
+  setDoc,
+  getDoc,
+  collection,
+  query,
+  where,
+  getDocs,
+} from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { toast, Toaster } from 'react-hot-toast';
+import Link from 'next/link';
 
 interface FormData {
   firstName: string;
@@ -16,8 +27,14 @@ interface FormData {
   email: string;
 }
 
+interface UserLink {
+  id: string;
+  url: string;
+  title: string;
+}
+
 const DesktopPage: React.FC = () => {
-  const [user] = useAuthState(auth);
+  const [user, loading, error] = useAuthState(auth);
   const {
     register,
     handleSubmit,
@@ -29,7 +46,9 @@ const DesktopPage: React.FC = () => {
   const [firstName, setFirstName] = useState<string>('');
   const [lastName, setLastName] = useState<string>('');
   const [email, setEmail] = useState<string>('');
+  const [links, setLinks] = useState<UserLink[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
 
   useEffect(() => {
     if (user) {
@@ -49,18 +68,39 @@ const DesktopPage: React.FC = () => {
           setEmail(profileData.email || '');
         }
       };
+
+      const fetchLinks = async () => {
+        const linksRef = collection(db, 'links');
+        const q = query(linksRef, where('userId', '==', user.uid));
+        const querySnapshot = await getDocs(q);
+        const userLinks: UserLink[] = [];
+        querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          userLinks.push({ id: doc.id, ...data } as UserLink);
+        });
+        setLinks(userLinks);
+      };
+
       fetchProfile();
+      fetchLinks();
     }
   }, [user, setValue]);
 
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/login');
+    }
+  }, [user, loading, router]);
+
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0]) {
-      setSelectedFile(event.target.files[0]);
+      const file = event.target.files[0];
+      setSelectedFile(file);
       const reader = new FileReader();
       reader.onload = () => {
         setProfilePicture(reader.result as string);
       };
-      reader.readAsDataURL(event.target.files[0]);
+      reader.readAsDataURL(file);
     }
   };
 
@@ -87,7 +127,6 @@ const DesktopPage: React.FC = () => {
           imageUrl,
         });
 
-        // Update local state
         setFirstName(data.firstName);
         setLastName(data.lastName);
         setEmail(data.email);
@@ -101,82 +140,94 @@ const DesktopPage: React.FC = () => {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="animate-spin rounded-full h-20 w-20 border-t-4 border-b-2 border-[#633CFF]"></div>
+      </div>
+    );
+  }
+
+  if (error || !user) {
+    return (
+      <div className="text-center flex flex-col items-center justify-center min-h-screen">
+        <div className="animate-spin flex justify-center items-center rounded-full h-20 w-20 border-t-4 border-b-2 border-[#b32828]"></div>
+
+        <p className="text-gray-700 mt-4">Please log in to continue.</p>
+
+        <Link href="/login" legacyBehavior>
+          <a className="text-[#b32828] underline mt-2 font-medium">
+            Go to Login Page
+          </a>
+        </Link>
+      </div>
+    );
+  }
+
   return (
-    <div className="w-full flex bg-primary justify-center">
+    <div className="lg:flex bg-primary">
       <MainLayout
         profilePicture={profilePicture || undefined}
-        // firstName={firstName}
-        // lastName={lastName}
-        // email={email}
-        links={[]} // Pass your links here if you have any
+        firstName={firstName}
+        lastName={lastName}
+        email={email}
+        links={links}
       />
-      <div className="border w-full mx-[10rem] mb-[5rem] py-[2rem] px-[2rem] bg-white border-white">
-        <h1 className="text-black text-[32px] font-bold">Profile Details</h1>
-        <h2 className="text-dark-gray">
+      <div className="max-w-4xl my-[2rem] bg-white shadow-md rounded-lg p-8">
+        <h1 className="text-black sm:text-[32px] text-2xl font-bold">
+          Profile Details
+        </h1>
+        <h2 className="text-dark-gray text-base mt-2">
           Add your details to create a personal touch to your profile
         </h2>
-        <div className="flex border mt-[2rem] rounded-md border-primary bg-primary py-[2rem] px-[2rem] gap-[20rem] items-center">
+        <div className="flex sm:flex-row flex-col border mt-[2rem] rounded-md border-primary bg-primary py-[2rem] px-[1rem] sm:gap-[5rem] gap-[2rem] sm:items-center items-start justify-between">
           <h3 className="text-base text-dark-gray">Profile picture</h3>
-          <div className="flex items-center gap-10">
-            {profilePicture ? (
-              <div className="relative">
-                <Image
-                  src={profilePicture}
-                  alt="Profile Picture"
-                  className="w-[20rem] h-[13rem] rounded-full object-cover"
-                  width={100}
-                  height={100}
-                />
-                <div
-                  className="absolute top-0 right-0 bg-purple text-white rounded-full p-2 cursor-pointer"
-                  onClick={handleUploadClick}
-                >
-                  <Image src={upload} alt="upload" width={20} height={20} />
-                  <h4 className="text-secondary font-semibold">
-                    + Upload Image
-                  </h4>
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    onChange={handleFileChange}
-                    style={{ display: 'none' }}
-                    accept="image/png, image/jpeg"
-                  />
-                </div>
-              </div>
-            ) : (
-              <div
-                className="border border-purple bg-purple py-[3rem] px-[2rem] rounded-md flex flex-col items-center cursor-pointer"
-                onClick={handleUploadClick}
+          <div className="flex sm:flex-row flex-col sm:items-center items-start gap-10">
+            <div
+              className="border border-purple bg-purple sm:py-[1rem] py-[3rem] sm:px-[2rem] px-[1.5rem] rounded-md flex flex-col items-center cursor-pointer"
+              onClick={handleUploadClick}
+              style={{
+                backgroundImage: selectedFile ? `url(${profilePicture})` : '',
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+              }}
+            >
+              <Image
+                src={selectedFile ? change : upload}
+                alt={selectedFile ? 'change' : 'upload'}
+                className="mb-2"
+              />
+              <h4
+                className={`font-semibold ${selectedFile ? 'text-white' : 'text-secondary'}`}
               >
-                <Image src={upload} alt="upload" />
-                <h4 className="text-secondary font-semibold">+ Upload Image</h4>
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleFileChange}
-                  style={{ display: 'none' }}
-                  accept="image/png, image/jpeg"
-                />
-              </div>
-            )}
+                {selectedFile ? 'Change Image' : '+ Upload Image'}
+              </h4>
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                style={{ display: 'none' }}
+                accept="image/png, image/jpeg"
+              />
+            </div>
             <h5 className="text-xs text-dark-gray">
-              Image must be below 1024x1024px. <br /> Use PNG or JPG format.
+              Image must be below 1024x1024px.
+              <br className="sm:block hidden" />
+              Use PNG <br className="sm:hidden block" /> or JPG format.
             </h5>
           </div>
         </div>
-
         {selectedFile && (
           <div className="mt-4 text-dark-gray">
             <p>Selected file: {selectedFile.name}</p>
           </div>
         )}
-        <form onSubmit={handleSubmit(onSubmit)}>
-          <div className="border mt-[2rem] rounded-md border-primary py-[2rem] px-[2rem] flex flex-col gap-[1rem] bg-primary items-center">
-            <div className="flex gap-[rem] w-full relative">
+        <form onSubmit={handleSubmit(onSubmit)} className="">
+          <div className="border mt-[2rem] rounded-md border-primary py-[2rem] px-[1rem] flex flex-col gap-[.5rem] bg-primary items-center">
+            <div className="sm:flex gap-[rem] w-full relative">
               <label
                 htmlFor="firstName"
-                className="w-full text-dark-gray text-base"
+                className="w-full text-dark-gray sm:text-base text-xs"
               >
                 First name*
               </label>
@@ -184,7 +235,7 @@ const DesktopPage: React.FC = () => {
                 type="text"
                 placeholder="e.g John"
                 {...register('firstName', { required: "Can't be empty" })}
-                className="w-full rounded-md py-2 border px-[2rem] border-light-gray text-base"
+                className="w-full rounded-md py-2 border px-[.7rem] border-light-gray text-base outline-none font-normal text-black"
               />
               {errors.firstName && (
                 <span className="text-red-500 absolute top-3 px-4 right-0 text-red text-xs">
@@ -192,10 +243,10 @@ const DesktopPage: React.FC = () => {
                 </span>
               )}
             </div>
-            <div className="flex gap-[rem] w-full relative">
+            <div className="sm:flex gap-[rem] w-full relative">
               <label
                 htmlFor="lastName"
-                className="w-full text-dark-gray text-base"
+                className="w-full text-dark-gray sm:text-base text-xs"
               >
                 Last name*
               </label>
@@ -203,18 +254,18 @@ const DesktopPage: React.FC = () => {
                 type="text"
                 placeholder="e.g Appleseed"
                 {...register('lastName', { required: "Can't be empty" })}
-                className="w-full rounded-md py-2 border px-[2rem] border-light-gray text-base"
+                className="w-full rounded-md py-2 border px-[.7rem] border-light-gray text-base outline-none text-black"
               />
               {errors.lastName && (
-                <span className="text-red-500 absolute top-3 right-0 px-4 text-red text-xs">
+                <span className="text-red absolute top-3 right-0 px-4 text-xs">
                   {errors.lastName.message}
                 </span>
               )}
             </div>
-            <div className="flex gap-[rem] w-full">
+            <div className="sm:flex gap-[rem] w-full">
               <label
                 htmlFor="email"
-                className="w-full text-dark-gray text-base"
+                className="w-full text-dark-gray sm:text-base text-xs"
               >
                 Email
               </label>
@@ -227,7 +278,7 @@ const DesktopPage: React.FC = () => {
                     message: 'Invalid email address',
                   },
                 })}
-                className="w-full rounded-md py-2 border px-[2rem] border-light-gray text-base"
+                className="w-full rounded-md py-2 border px-[.7rem] border-light-gray text-base outline-none text-black"
               />
               {errors.email && (
                 <span className="text-red-500">{errors.email.message}</span>
@@ -236,12 +287,11 @@ const DesktopPage: React.FC = () => {
           </div>
           <button
             type="submit"
-            className="text-right border py-2 px-7 mt-[5rem] ml-[54rem] border-t rounded-md text-white bg-secondary"
+            className="text-right border py-2 px-7 mt-[5rem] border-t rounded-md text-white bg-secondary"
           >
             Save
           </button>
         </form>
-
         <Toaster position="top-right" reverseOrder={false} />
       </div>
     </div>
